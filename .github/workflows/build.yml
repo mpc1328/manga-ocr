@@ -22,68 +22,48 @@ jobs:
 
       - name: Generate Xcode project
         run: |
-          echo "=== project.yml ==="
-          cat project.yml
-          echo ""
-          echo "=== XcodeGen version ==="
-          xcodegen version
-          echo ""
-          echo "=== Generating... ==="
           xcodegen generate --spec project.yml
-          echo ""
-          echo "=== Generated files ==="
-          ls -la MangaOCR.xcodeproj/
-          echo ""
-          echo "=== Schemes ==="
-          xcodebuild -list -project MangaOCR.xcodeproj
+          echo "## XcodeGen" >> $GITHUB_STEP_SUMMARY
+          echo "Project generated successfully." >> $GITHUB_STEP_SUMMARY
+          xcodebuild -list -project MangaOCR.xcodeproj >> $GITHUB_STEP_SUMMARY 2>&1
 
       - name: Build app
         run: |
-          mkdir -p build
+          set -o pipefail
           xcodebuild build \
             -project MangaOCR.xcodeproj \
             -scheme MangaOCR \
             -configuration Release \
-            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
             -derivedDataPath build/DerivedData \
-            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            > build/build_log.txt 2>&1; BUILD_EXIT=$?
-          echo "::group::Build errors"
-          grep -iE "error:|fatal|failed" build/build_log.txt || echo "No error lines"
-          echo "::endgroup::"
-          echo "::group::Last 80 lines"
-          tail -80 build/build_log.txt
-          echo "::endgroup::"
-          exit $BUILD_EXIT
+            2>&1 | tee build_log.txt
+          echo "## Build" >> $GITHUB_STEP_SUMMARY
+          echo "Build succeeded!" >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload build log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build/build_log.txt
-          if-no-files-found: ignore
-
-      - name: Show last 100 lines of build log on failure
+      - name: Dump errors on failure
         if: failure()
         run: |
-          echo "=== LAST 100 LINES OF BUILD LOG ==="
-          tail -100 build/build_log.txt || echo "No build log found"
+          echo "## Build Errors" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -iE "error:" build_log.txt 2>/dev/null | head -50 >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "## Last 80 lines" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -80 build_log.txt 2>/dev/null >> $GITHUB_STEP_SUMMARY || echo "No build log found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Create IPA
         run: |
           APP_PATH=$(find build/DerivedData -name "MangaOCR.app" -type d | head -1)
           echo "Found app at: $APP_PATH"
-          mkdir -p build/Payload
-          cp -r "$APP_PATH" build/Payload/
-          cd build
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
           zip -r MangaOCR.ipa Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: MangaOCR-IPA
-          path: build/MangaOCR.ipa
+          path: MangaOCR.ipa
