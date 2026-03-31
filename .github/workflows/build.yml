@@ -22,7 +22,18 @@ jobs:
 
       - name: Generate Xcode project
         run: |
+          echo "=== project.yml ==="
+          cat project.yml
+          echo ""
+          echo "=== XcodeGen version ==="
+          xcodegen version
+          echo ""
+          echo "=== Generating... ==="
           xcodegen generate --spec project.yml
+          echo ""
+          echo "=== Generated files ==="
+          ls -la MangaOCR.xcodeproj/
+          echo ""
           echo "=== Schemes ==="
           xcodebuild -list -project MangaOCR.xcodeproj
 
