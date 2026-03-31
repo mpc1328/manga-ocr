@@ -1,0 +1,10 @@
+# Xcode
+build/
+*.xcarchive
+DerivedData/
+
+# macOS
+.DS_Store
+
+# IPA
+*.ipa
