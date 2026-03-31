@@ -11,19 +11,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show Xcode version
+      - name: Show environment
         run: |
+          echo "=== macOS Version ==="
+          sw_vers
+          echo ""
+          echo "=== Xcode Version ==="
           xcodebuild -version
+          echo ""
+          echo "=== SDK Version ==="
           xcrun --sdk iphoneos --show-sdk-version
+          echo ""
+          echo "=== Available Xcodes ==="
+          ls /Applications/ | grep Xcode || true
+          echo ""
+          echo "=== Project files ==="
+          find . -name "*.swift" -o -name "*.yml" -o -name "*.plist" | head -30
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode project
-        run: xcodegen generate
+        run: |
+          echo "=== project.yml content ==="
+          cat project.yml
+          echo ""
+          echo "=== Running XcodeGen ==="
+          xcodegen generate --spec project.yml
+          echo ""
+          echo "=== Generated project structure ==="
+          ls -la MangaOCR.xcodeproj/
+          echo ""
+          echo "=== Available schemes and targets ==="
+          xcodebuild -list -project MangaOCR.xcodeproj
 
       - name: Build app
         run: |
+          mkdir -p build
+          set -o pipefail
           xcodebuild build \
             -project MangaOCR.xcodeproj \
             -scheme MangaOCR \
@@ -33,7 +58,21 @@ jobs:
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            AD_HOC_CODE_SIGNING_ALLOWED=YES
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            2>&1 | tee build/build_log.txt
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build/build_log.txt
+
+      - name: Show last 100 lines of build log on failure
+        if: failure()
+        run: |
+          echo "=== LAST 100 LINES OF BUILD LOG ==="
+          tail -100 build/build_log.txt || echo "No build log found"
 
       - name: Create IPA
         run: |
