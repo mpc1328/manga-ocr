@@ -12,6 +12,8 @@ targets:
     platform: iOS
     sources:
       - path: MangaOCR
+        excludes:
+          - Info.plist
     settings:
       base:
         INFOPLIST_FILE: MangaOCR/Info.plist

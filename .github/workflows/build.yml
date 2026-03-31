@@ -13,42 +13,22 @@ jobs:
 
       - name: Show environment
         run: |
-          echo "=== macOS Version ==="
           sw_vers
-          echo ""
-          echo "=== Xcode Version ==="
           xcodebuild -version
-          echo ""
-          echo "=== SDK Version ==="
           xcrun --sdk iphoneos --show-sdk-version
-          echo ""
-          echo "=== Available Xcodes ==="
-          ls /Applications/ | grep Xcode || true
-          echo ""
-          echo "=== Project files ==="
-          find . -name "*.swift" -o -name "*.yml" -o -name "*.plist" | head -30
 
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate Xcode project
         run: |
-          echo "=== project.yml content ==="
-          cat project.yml
-          echo ""
-          echo "=== Running XcodeGen ==="
           xcodegen generate --spec project.yml
-          echo ""
-          echo "=== Generated project structure ==="
-          ls -la MangaOCR.xcodeproj/
-          echo ""
-          echo "=== Available schemes and targets ==="
+          echo "=== Schemes ==="
           xcodebuild -list -project MangaOCR.xcodeproj
 
       - name: Build app
         run: |
           mkdir -p build
-          set -o pipefail
           xcodebuild build \
             -project MangaOCR.xcodeproj \
             -scheme MangaOCR \
@@ -59,14 +39,22 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             AD_HOC_CODE_SIGNING_ALLOWED=YES \
-            2>&1 | tee build/build_log.txt
+            > build/build_log.txt 2>&1; BUILD_EXIT=$?
+          echo "::group::Build errors"
+          grep -iE "error:|fatal|failed" build/build_log.txt || echo "No error lines"
+          echo "::endgroup::"
+          echo "::group::Last 80 lines"
+          tail -80 build/build_log.txt
+          echo "::endgroup::"
+          exit $BUILD_EXIT
 
-      - name: Upload build log on failure
-        if: failure()
+      - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
           path: build/build_log.txt
+          if-no-files-found: ignore
 
       - name: Show last 100 lines of build log on failure
         if: failure()
