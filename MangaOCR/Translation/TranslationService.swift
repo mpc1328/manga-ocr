@@ -1,14 +1,15 @@
 import Foundation
+#if canImport(Translation)
 import Translation
+#endif
 
-/// Translates text from English to Italian using Apple's on-device Translation framework (iOS 17.4+).
+/// Translates text from English to Italian using Apple's on-device Translation framework (iOS 18+).
 /// Falls back to MyMemory free API if Translation framework is unavailable.
 @MainActor
 final class TranslationService: ObservableObject {
 
     @Published var isReady = false
 
-    private var translationSession: Any? // TranslationSession stored as Any for version check
     private let cache = NSCache<NSString, NSString>()
 
     init() {
@@ -28,12 +29,14 @@ final class TranslationService: ObservableObject {
         }
 
         // Try Apple Translation framework (iOS 18+)
+        #if canImport(Translation)
         if #available(iOS 18.0, *) {
             if let result = await translateWithApple(trimmed) {
                 cache.setObject(result as NSString, forKey: trimmed as NSString)
                 return result
             }
         }
+        #endif
 
         // Fallback: MyMemory free translation API
         if let result = await translateWithMyMemory(trimmed) {
@@ -70,6 +73,7 @@ final class TranslationService: ObservableObject {
 
     // MARK: - Apple Translation Framework
 
+    #if canImport(Translation)
     @available(iOS 18.0, *)
     private func translateWithApple(_ text: String) async -> String? {
         do {
@@ -85,6 +89,7 @@ final class TranslationService: ObservableObject {
             return nil
         }
     }
+    #endif
 
     // MARK: - MyMemory API Fallback
 
