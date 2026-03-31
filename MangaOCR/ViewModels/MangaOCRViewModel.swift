@@ -1,8 +1,6 @@
 import SwiftUI
 import AVFoundation
-import Combine
 
-/// Main view model that orchestrates camera, OCR, and translation.
 @MainActor
 final class MangaOCRViewModel: ObservableObject {
 
@@ -16,20 +14,8 @@ final class MangaOCRViewModel: ObservableObject {
 
     private let ocrProcessor = OCRProcessor()
     private var isOCRBusy = false
-    private var cancellables = Set<AnyCancellable>()
-
-    /// Interval between OCR scans in seconds.
-    var scanInterval: TimeInterval = 0.4
-
+    var scanInterval: TimeInterval = 0.5
     private var lastScanTime: Date = .distantPast
-
-    init() {
-        cameraManager.$error
-            .compactMap { $0 }
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] msg in self?.errorMessage = msg }
-            .store(in: &cancellables)
-    }
 
     func startCamera() {
         cameraManager.configure()
@@ -56,8 +42,6 @@ final class MangaOCRViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Frame Processing
-
     private func handleFrame(_ buffer: CMSampleBuffer) async {
         guard !isPaused, !isOCRBusy else { return }
 
@@ -68,19 +52,15 @@ final class MangaOCRViewModel: ObservableObject {
         isProcessing = true
         lastScanTime = now
 
-        // 1. OCR recognition
         let recognized = await ocrProcessor.recognizeText(in: buffer)
 
-        guard !recognized.isEmpty else {
+        if recognized.isEmpty {
             isProcessing = false
             isOCRBusy = false
             return
         }
 
-        // 2. Translate all blocks
         let translated = await translationService.translate(blocks: recognized)
-
-        // 3. Update UI
         textBlocks = translated
         isProcessing = false
         isOCRBusy = false

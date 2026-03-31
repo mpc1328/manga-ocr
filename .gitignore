@@ -2,6 +2,7 @@
 build/
 *.xcarchive
 DerivedData/
+*.xcodeproj
 
 # macOS
 .DS_Store
